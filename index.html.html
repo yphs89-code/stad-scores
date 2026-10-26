@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STAD 合作學習與標準分線上查詢系統</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: #f3f4f6;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background-color: white; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-gray-800">
+
+  <!-- Header / Navigation -->
+  <header class="bg-indigo-700 text-white shadow-md no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('student-login')">
+        <i class="fa-solid fa-users-viewfinder text-2xl text-indigo-200"></i>
+        <span class="font-bold text-xl tracking-wide">STAD 學習成績與雙分組查詢系統</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button id="nav-student-btn" onclick="logoutStudent()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition hidden">
+          <i class="fa-solid fa-user-graduate mr-1"></i> 學生登出
+        </button>
+        <button id="nav-admin-btn" onclick="openAdminAuth()" class="px-3 py-1.5 rounded-lg bg-indigo-900 hover:bg-indigo-800 text-sm font-medium transition">
+          <i class="fa-solid fa-user-shield mr-1"></i> 教師管理後台
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+    <!-- 1. Student Login View -->
+    <div id="view-student-login" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-6">
+      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white text-center">
+        <i class="fa-solid fa-graduation-cap text-5xl mb-2 text-indigo-200"></i>
+        <h2 class="text-2xl font-bold">學生成績與 STAD 分組查詢</h2>
+        <p class="text-indigo-100 text-sm mt-1">請輸入您的學號與密碼（預設密碼為學號後 4 碼）</p>
+      </div>
+      <form onsubmit="handleStudentLogin(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">學生學號</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-id-card"></i></span>
+            <input type="text" id="login-id" placeholder="例如：11550000" required class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">查詢密碼</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-lock"></i></span>
+            <input type="password" id="login-pass" placeholder="預設學號後4碼 (如: 0000)" required class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+        <div id="login-error" class="text-red-500 text-sm hidden flex items-center gap-1">
+          <i class="fa-solid fa-circle-exclamation"></i> <span id="login-error-msg">學號或密碼錯誤！</span>
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> 登入查詢個人成績與組別
+        </button>
+      </form>
+    </div>
+
+    <!-- 2. Student Dashboard View -->
+    <div id="view-student-dashboard" class="hidden space-y-6">
+      <!-- Top Student Welcome Card -->
+      <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+          <div class="w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-2xl font-bold">
+            <span id="stu-avatar-name">學生</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-2xl font-bold text-gray-900" id="stu-display-name">---</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800" id="stu-display-seat">座號 --</span>
+            </div>
+            <p class="text-sm text-gray-500 mt-0.5">學號：<span id="stu-display-id">---</span></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 no-print">
+          <button onclick="window.print()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-print"></i> 列印個人成績單
+          </button>
+          <button onclick="logoutStudent()" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> 登出
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Score Card 1: Math Science -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-blue-500 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-gray-500 font-medium text-sm">數理組 (數自領域)</span>
+              <span class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i class="fa-solid fa-calculator"></i></span>
+            </div>
+            <div class="text-3xl font-bold text-gray-800" id="stu-score-math">--</div>
+            <p class="text-xs text-gray-400 mt-1">原始百分制分數</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-gray-100 space-y-2">
+            <div class="grid grid-cols-2 gap-2 text-center">
+              <div class="bg-gray-50 p-2 rounded-lg">
+                <span class="text-xs text-gray-400 block">Z 分數</span>
+                <span class="font-bold text-indigo-600 text-sm" id="stu-z-math">--</span>
+              </div>
+              <div class="bg-gray-50 p-2 rounded-lg">
+                <span class="text-xs text-gray-400 block">T 分數 (基準分)</span>
+                <span class="font-bold text-purple-600 text-sm" id="stu-t-math">--</span>
+              </div>
+            </div>
+            <div class="bg-blue-50/70 p-2 rounded-lg text-center">
+              <span class="text-xs text-blue-700 block font-medium">STAD 所屬組別</span>
+              <span class="font-bold text-blue-900 text-sm" id="stu-group-math">第 -- 組</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Card 2: Language Arts -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-emerald-500 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-gray-500 font-medium text-sm">語文組 (國英社領域)</span>
+              <span class="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><i class="fa-solid fa-book-open"></i></span>
+            </div>
+            <div class="text-3xl font-bold text-gray-800" id="stu-score-lang">--</div>
+            <p class="text-xs text-gray-400 mt-1">原始百分制分數</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-gray-100 space-y-2">
+            <div class="grid grid-cols-2 gap-2 text-center">
+              <div class="bg-gray-50 p-2 rounded-lg">
+                <span class="text-xs text-gray-400 block">Z 分數</span>
+                <span class="font-bold text-indigo-600 text-sm" id="stu-z-lang">--</span>
+              </div>
+              <div class="bg-gray-50 p-2 rounded-lg">
+                <span class="text-xs text-gray-400 block">T 分數 (基準分)</span>
+                <span class="font-bold text-purple-600 text-sm" id="stu-t-lang">--</span>
+              </div>
+            </div>
+            <div class="bg-emerald-50/70 p-2 rounded-lg text-center">
+              <span class="text-xs text-emerald-700 block font-medium">STAD 所屬組別</span>
+              <span class="font-bold text-emerald-900 text-sm" id="stu-group-lang">第 -- 組</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Score Card 3: Composite Score -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border-l-4 border-purple-500 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-gray-500 font-medium text-sm">綜合表現 (Composite)</span>
+              <span class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i class="fa-solid fa-chart-line"></i></span>
+            </div>
+            <div class="text-3xl font-bold text-gray-800" id="stu-score-avg">--</div>
+            <p class="text-xs text-gray-400 mt-1">兩科平均原始分</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-center">
+            <div class="bg-gray-50 p-2 rounded-lg">
+              <span class="text-xs text-gray-400 block">綜合 Z 分數</span>
+              <span class="font-bold text-indigo-600 text-sm" id="stu-z-avg">--</span>
+            </div>
+            <div class="bg-gray-50 p-2 rounded-lg">
+              <span class="text-xs text-gray-400 block">綜合 T 分數</span>
+              <span class="font-bold text-purple-600 text-sm" id="stu-t-avg">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAD Group Details Display -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Math Team Members -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+          <h3 class="font-bold text-indigo-900 text-lg mb-3 flex items-center justify-between">
+            <span><i class="fa-solid fa-calculator text-blue-600 mr-2"></i>數理組同組成員名單</span>
+            <span class="text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full" id="stu-math-group-title">第 -- 組</span>
+          </h3>
+          <div id="stu-math-team-list" class="space-y-2 text-sm">
+            <!-- JS Rendered Team Members -->
+          </div>
+        </div>
+
+        <!-- Language Team Members -->
+        <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+          <h3 class="font-bold text-emerald-900 text-lg mb-3 flex items-center justify-between">
+            <span><i class="fa-solid fa-book-open text-emerald-600 mr-2"></i>語文組同組成員名單</span>
+            <span class="text-xs bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full" id="stu-lang-group-title">第 -- 組</span>
+          </h3>
+          <div id="stu-lang-team-list" class="space-y-2 text-sm">
+            <!-- JS Rendered Team Members -->
+          </div>
+        </div>
+      </div>
+
+      <!-- STAD Explanation Card with Custom Progression Table -->
+      <div class="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-trophy text-amber-500"></i> STAD 個人表現與進步分數對照表
+        </h3>
+        <p class="text-xs text-gray-600 mb-4 leading-relaxed">
+          STAD 合作學習核心為「與個人過去表現競爭」。下次測驗時，系統將依據您本次測驗的分數作為「個人基準分」，根據您的表現頒發小組貢獻分數：
+        </p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left border-collapse border border-gray-200">
+            <thead>
+              <tr class="bg-indigo-50 text-indigo-900 font-bold border-b border-gray-200">
+                <th class="p-3 border-r border-gray-200">個人表現狀況</th>
+                <th class="p-3 text-center">STAD 進步分數（貢獻小組積分）</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 text-gray-700">
+              <tr>
+                <td class="p-3 border-r border-gray-200">低於基準分 10 分以上</td>
+                <td class="p-3 text-center font-bold text-red-500">0 分</td>
+              </tr>
+              <tr class="bg-gray-50/50">
+                <td class="p-3 border-r border-gray-200">低於基準分 1 ~ 9 分</td>
+                <td class="p-3 text-center font-bold text-amber-600">10 分</td>
+              </tr>
+              <tr>
+                <td class="p-3 border-r border-gray-200">等於基準分 ~ 高出 4 分</td>
+                <td class="p-3 text-center font-bold text-blue-600">20 分</td>
+              </tr>
+              <tr class="bg-gray-50/50">
+                <td class="p-3 border-r border-gray-200">高出基準分 5 ~ 9 分</td>
+                <td class="p-3 text-center font-bold text-indigo-600">25 分</td>
+              </tr>
+              <tr>
+                <td class="p-3 border-r border-gray-200">高出基準分 10 分（或考 100 分）</td>
+                <td class="p-3 text-center font-bold text-emerald-600">30 分</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Teacher / Admin Auth Modal -->
+    <div id="modal-admin-auth" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+        <div class="text-center">
+          <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
+            <i class="fa-solid fa-lock"></i>
+          </div>
+          <h3 class="text-lg font-bold text-gray-900">教師後台驗證</h3>
+          <p class="text-xs text-gray-500">請輸入教師管理密碼 (預設: admin123)</p>
+        </div>
+        <div>
+          <input type="password" id="admin-pass-input" placeholder="請輸入管理員密碼" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p id="admin-pass-error" class="text-red-500 text-xs mt-1 hidden">密碼錯誤，請再試一次！</p>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button onclick="closeAdminAuth()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm">取消</button>
+          <button onclick="verifyAdminPass()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">驗證登入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Teacher Admin View -->
+    <div id="view-admin" class="hidden space-y-6">
+      <!-- Admin Header Bar -->
+      <div class="bg-indigo-900 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold flex items-center gap-2">
+            <i class="fa-solid fa-chalkboard-user"></i> STAD 雙分組與成績管理後台
+          </h2>
+          <p class="text-indigo-200 text-sm mt-1">全班共 <span id="admin-total-count">0</span> 位學生，已匯入【數理組】與【語文組】各 9 組名冊</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="exportCSV()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> 匯出完整雙分組與標準分 CSV
+          </button>
+          <button onclick="logoutAdmin()" class="px-3.5 py-2 bg-indigo-800 hover:bg-indigo-700 text-indigo-100 rounded-lg text-sm font-medium transition">
+            離開後台
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Buttons for Admin View -->
+      <div class="flex border-b border-gray-200 gap-4">
+        <button id="admin-tab-btn-table" onclick="switchAdminTab('table')" class="pb-3 border-b-2 border-indigo-600 font-bold text-indigo-600 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-table-list"></i> 全班名冊與成績總覽
+        </button>
+        <button id="admin-tab-btn-groups" onclick="switchAdminTab('groups')" class="pb-3 border-b-2 border-transparent font-bold text-gray-500 hover:text-indigo-600 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-people-group"></i> STAD 雙分組名冊視圖
+        </button>
+      </div>
+
+      <!-- Admin Tab 1: Student Table -->
+      <div id="admin-tab-table" class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+        <div class="p-4 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50">
+          <div class="relative max-w-xs w-full">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="admin-search-input" oninput="renderAdminTable()" placeholder="搜尋座號、姓名、學號..." class="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-gray-100 text-gray-600 font-semibold border-b border-gray-200">
+                <th class="p-3">座號</th>
+                <th class="p-3">學號</th>
+                <th class="p-3">姓名</th>
+                <th class="p-3">數理組別</th>
+                <th class="p-3">語文組別</th>
+                <th class="p-3">數理 (原始/T分)</th>
+                <th class="p-3">語文 (原始/T分)</th>
+                <th class="p-3">綜合平均 T 分</th>
+                <th class="p-3 text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="admin-table-body" class="divide-y divide-gray-100">
+              <!-- JS rendered rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Admin Tab 2: Grouping View -->
+      <div id="admin-tab-groups" class="hidden space-y-8">
+        <div>
+          <h3 class="text-xl font-bold text-blue-900 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-calculator"></i> 數理組 (數自) - 9 組名冊
+          </h3>
+          <div id="admin-math-groups-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-emerald-900 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-book-open"></i> 語文組 (國英社) - 9 組名冊
+          </h3>
+          <div id="admin-lang-groups-grid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-gray-400 py-6 text-center text-xs no-print mt-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <p class="mb-1">STAD 合作學習 (Student Teams-Achievement Divisions) 線上成績查詢系統</p>
+      <p>本系統符合個人資料隱私規範 | 學生僅能憑個人帳號密碼檢視自己的分數與所屬組別</p>
+    </div>
+  </footer>
+
+  <script>
+    // 45 Students Raw Data from Excel (Index + 1 = Seat Number)
+    const rawStudentData = [
+      { id: "11550080", name: "李羿萱", math: 76.85, lang: 82.35 }, // 座號 1
+      { id: "11550129", name: "林雨融", math: 82.75, lang: 76.90 }, // 座號 2
+      { id: "11550491", name: "許書悅", math: 58.20, lang: 71.05 }, // 座號 3
+      { id: "11550136", name: "林禹妡", math: 78.85, lang: 83.30 }, // 座號 4
+      { id: "11550149", name: "林翊庭", math: 67.15, lang: 75.10 }, // 座號 5
+      { id: "11550191", name: "胡愷芯", math: 62.45, lang: 70.60 }, // 座號 6
+      { id: "11550192", name: "謝宇宣", math: 68.40, lang: 70.60 }, // 座號 7
+      { id: "11550223", name: "張藍心", math: 76.25, lang: 88.45 }, // 座號 8
+      { id: "11550252", name: "許瑄芮", math: 70.45, lang: 80.05 }, // 座號 9
+      { id: "11550282", name: "陳玟妤", math: 81.80, lang: 77.25 }, // 座號 10
+      { id: "11550318", name: "陳萱語", math: 92.10, lang: 84.85 }, // 座號 11
+      { id: "11550333", name: "曾靖喬", math: 88.80, lang: 82.90 }, // 座號 12
+      { id: "11550382", name: "楊喬媗", math: 90.70, lang: 82.30 }, // 座號 13
+      { id: "11550385", name: "楊礎嫙", math: 96.10, lang: 93.00 }, // 座號 14
+      { id: "11550451", name: "蕭舒蔓", math: 90.80, lang: 84.85 }, // 座號 15
+      { id: "11550452", name: "賴芊羽", math: 83.40, lang: 84.20 }, // 座號 16
+      { id: "11550455", name: "賴映倫", math: 66.85, lang: 85.20 }, // 座號 17
+      { id: "11550011", name: "王浩彧", math: 85.55, lang: 75.20 }, // 座號 18
+      { id: "11550058", name: "吳郡軒", math: 86.40, lang: 70.60 }, // 座號 19
+      { id: "11550067", name: "李忠諺", math: 76.30, lang: 72.10 }, // 座號 20
+      { id: "11550076", name: "李柏諺", math: 84.70, lang: 80.85 }, // 座號 21
+      { id: "11550083", name: "李韋樂", math: 71.00, lang: 86.50 }, // 座號 22
+      { id: "11550094", name: "沈克樺", math: 90.45, lang: 69.30 }, // 座號 23
+      { id: "11550107", name: "周羿帆", math: 95.05, lang: 90.80 }, // 座號 24
+      { id: "11550142", name: "林家賢", math: 72.50, lang: 79.60 }, // 座號 25
+      { id: "11550144", name: "游善正", math: 57.60, lang: 71.85 }, // 座號 26
+      { id: "11550145", name: "林祐任", math: 81.85, lang: 77.00 }, // 座號 27
+      { id: "11550156", name: "林義翔", math: 69.50, lang: 77.25 }, // 座號 28
+      { id: "11550172", name: "邱瀚麒", math: 67.20, lang: 55.70 }, // 座號 29
+      { id: "11550225", name: "曹康倫", math: 69.05, lang: 72.30 }, // 座號 30
+      { id: "11550230", name: "梅政洋", math: 72.60, lang: 78.20 }, // 座號 31
+      { id: "11550259", name: "郭先宜", math: 78.90, lang: 69.10 }, // 座號 32
+      { id: "11550269", name: "陳克維", math: 59.30, lang: 73.20 }, // 座號 33
+      { id: "11550288", name: "陳宣甫", math: 81.40, lang: 62.55 }, // 座號 34
+      { id: "11550290", name: "陳宥翔", math: 87.35, lang: 81.20 }, // 座號 35
+      { id: "11550302", name: "陳祉全", math: 94.95, lang: 92.95 }, // 座號 36
+      { id: "11550314", name: "陳楷翰", math: 71.20, lang: 59.80 }, // 座號 37
+      { id: "11550319", name: "陳維捷", math: 64.35, lang: 64.35 }, // 座號 38
+      { id: "11550349", name: "黃奕天", math: 83.85, lang: 76.85 }, // 座號 39
+      { id: "11550370", name: "黃睿宇", math: 66.50, lang: 75.50 }, // 座號 40
+      { id: "11550378", name: "楊格翔", math: 87.90, lang: 88.55 }, // 座號 41
+      { id: "11550436", name: "蔡緒安", math: 93.25, lang: 90.95 }, // 座號 42
+      { id: "11550440", name: "鄭立楷", math: 65.20, lang: 76.75 }, // 座號 43
+      { id: "11550459", name: "賴嘉晟", math: 85.30, lang: 81.95 }, // 座號 44
+      { id: "11550485", name: "蘇品竹", math: 64.15, lang: 42.30 }  // 座號 45
+    ];
+
+    // Math Grouping Mapping (Seat Numbers)
+    const mathGroupSeats = {
+      1: [14, 2, 27, 29, 17],
+      2: [24, 16, 10, 5, 40],
+      3: [36, 39, 34, 7, 43],
+      4: [42, 21, 32, 30, 38],
+      5: [11, 44, 4, 28, 45],
+      6: [15, 18, 20, 9, 6],
+      7: [13, 19, 1, 22, 33],
+      8: [23, 35, 8, 37, 3],
+      9: [12, 41, 31, 25, 26]
+    };
+
+    // Language Grouping Mapping (Seat Numbers)
+    const langGroupSeats = {
+      1: [14, 21, 25, 7, 6],
+      2: [36, 35, 9, 3, 19],
+      3: [42, 44, 31, 26, 23],
+      4: [24, 13, 10, 20, 32],
+      5: [41, 1, 30, 28, 38],
+      6: [8, 12, 27, 33, 34],
+      7: [22, 2, 4, 5, 37],
+      8: [17, 16, 39, 18, 29],
+      9: [11, 15, 43, 40, 45]
+    };
+
+    let processedStudents = [];
+    let currentStudent = null;
+
+    // Standard Deviation calculation
+    function calcStats(arr) {
+      const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+      const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (arr.length - 1);
+      const std = Math.sqrt(variance);
+      return { mean, std };
+    }
+
+    // Initialize Processing
+    function initDataProcessing() {
+      const mathStats = calcStats(rawStudentData.map(d => d.math));
+      const langStats = calcStats(rawStudentData.map(d => d.lang));
+      const avgArr = rawStudentData.map(d => (d.math + d.lang) / 2);
+      const avgStats = calcStats(avgArr);
+
+      // Create lookup mapping for seat -> group
+      const mathSeatToGroup = {};
+      Object.keys(mathGroupSeats).forEach(g => {
+        mathGroupSeats[g].forEach(seat => mathSeatToGroup[seat] = parseInt(g));
+      });
+
+      const langSeatToGroup = {};
+      Object.keys(langGroupSeats).forEach(g => {
+        langGroupSeats[g].forEach(seat => langSeatToGroup[seat] = parseInt(g));
+      });
+
+      processedStudents = rawStudentData.map((s, idx) => {
+        const seat = idx + 1;
+        const pass = s.id.slice(-4);
+        const avg = (s.math + s.lang) / 2;
+
+        const zMath = (s.math - mathStats.mean) / mathStats.std;
+        const tMath = Math.round(50 + 10 * zMath);
+
+        const zLang = (s.lang - langStats.mean) / langStats.std;
+        const tLang = Math.round(50 + 10 * zLang);
+
+        const zAvg = (avg - avgStats.mean) / avgStats.std;
+        const tAvg = Math.round(50 + 10 * zAvg);
+
+        return {
+          ...s,
+          seat,
+          pass,
+          avg,
+          zMath: zMath.toFixed(2),
+          tMath,
+          zLang: zLang.toFixed(2),
+          tLang,
+          zAvg: zAvg.toFixed(2),
+          tAvg,
+          mathGroup: mathSeatToGroup[seat] || 0,
+          langGroup: langSeatToGroup[seat] || 0
+        };
+      });
+
+      document.getElementById('admin-total-count').innerText = processedStudents.length;
+    }
+
+    // View Switching
+    function switchTab(viewName) {
+      document.getElementById('view-student-login').classList.add('hidden');
+      document.getElementById('view-student-dashboard').classList.add('hidden');
+      document.getElementById('view-admin').classList.add('hidden');
+
+      if (viewName === 'student-login') {
+        document.getElementById('view-student-login').classList.remove('hidden');
+      } else if (viewName === 'student-dashboard') {
+        document.getElementById('view-student-dashboard').classList.remove('hidden');
+      } else if (viewName === 'admin') {
+        document.getElementById('view-admin').classList.remove('hidden');
+        renderAdminTable();
+        renderAdminGroups();
+      }
+    }
+
+    // Handle Student Login
+    function handleStudentLogin(e) {
+      e.preventDefault();
+      const id = document.getElementById('login-id').value.trim();
+      const pass = document.getElementById('login-pass').value.trim();
+
+      const stu = processedStudents.find(s => s.id === id && s.pass === pass);
+      if (stu) {
+        currentStudent = stu;
+        document.getElementById('login-error').classList.add('hidden');
+        renderStudentDashboard(stu);
+        switchTab('student-dashboard');
+        document.getElementById('nav-student-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('login-error-msg').innerText = "學號或密碼不正確！(預設密碼為學號後4碼)";
+        document.getElementById('login-error').classList.remove('hidden');
+      }
+    }
+
+    // Render Student Dashboard
+    function renderStudentDashboard(stu) {
+      document.getElementById('stu-avatar-name').innerText = stu.name.slice(-2);
+      document.getElementById('stu-display-name').innerText = stu.name;
+      document.getElementById('stu-display-seat').innerText = `座號 ${stu.seat} 號`;
+      document.getElementById('stu-display-id').innerText = stu.id;
+
+      // Scores
+      document.getElementById('stu-score-math').innerText = stu.math.toFixed(2);
+      document.getElementById('stu-z-math').innerText = (stu.zMath > 0 ? "+" : "") + stu.zMath;
+      document.getElementById('stu-t-math').innerText = stu.tMath;
+      document.getElementById('stu-group-math').innerText = `第 ${stu.mathGroup} 組`;
+
+      document.getElementById('stu-score-lang').innerText = stu.lang.toFixed(2);
+      document.getElementById('stu-z-lang').innerText = (stu.zLang > 0 ? "+" : "") + stu.zLang;
+      document.getElementById('stu-t-lang').innerText = stu.tLang;
+      document.getElementById('stu-group-lang').innerText = `第 ${stu.langGroup} 組`;
+
+      document.getElementById('stu-score-avg').innerText = stu.avg.toFixed(2);
+      document.getElementById('stu-z-avg').innerText = (stu.zAvg > 0 ? "+" : "") + stu.zAvg;
+      document.getElementById('stu-t-avg').innerText = stu.tAvg;
+
+      // Render Math Team Members
+      document.getElementById('stu-math-group-title').innerText = `第 ${stu.mathGroup} 組`;
+      const mathTeammates = processedStudents.filter(s => s.mathGroup === stu.mathGroup);
+      document.getElementById('stu-math-team-list').innerHTML = mathTeammates.map(m => `
+        <div class="p-2.5 rounded-lg border ${m.id === stu.id ? 'bg-blue-50 border-blue-200 font-bold' : 'bg-gray-50 border-gray-100'} flex justify-between items-center">
+          <div>
+            <span class="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded mr-1.5">${m.seat}號</span>
+            <span class="text-gray-800">${m.name}</span>
+            ${m.id === stu.id ? '<span class="text-xs text-blue-600 font-normal ml-1">(您自己)</span>' : ''}
+          </div>
+          <div class="text-xs text-gray-500 font-mono">
+  ${m.id === stu.id ? `T分數: ${m.tMath}` : ''}
+</div>
+        </div>
+      `).join('');
+
+      // Render Language Team Members
+      document.getElementById('stu-lang-group-title').innerText = `第 ${stu.langGroup} 組`;
+      const langTeammates = processedStudents.filter(s => s.langGroup === stu.langGroup);
+      document.getElementById('stu-lang-team-list').innerHTML = langTeammates.map(m => `
+        <div class="p-2.5 rounded-lg border ${m.id === stu.id ? 'bg-emerald-50 border-emerald-200 font-bold' : 'bg-gray-50 border-gray-100'} flex justify-between items-center">
+          <div>
+            <span class="text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded mr-1.5">${m.seat}號</span>
+            <span class="text-gray-800">${m.name}</span>
+            ${m.id === stu.id ? '<span class="text-xs text-emerald-600 font-normal ml-1">(您自己)</span>' : ''}
+          </div>
+          <div class="text-xs text-gray-500 font-mono">
+  ${m.id === stu.id ? `T分數: ${m.tLang}` : ''}
+</div>
+        </div>
+      `).join('');
+    }
+
+    function logoutStudent() {
+      currentStudent = null;
+      document.getElementById('login-id').value = '';
+      document.getElementById('login-pass').value = '';
+      document.getElementById('nav-student-btn').classList.add('hidden');
+      switchTab('student-login');
+    }
+
+    // Admin Auth
+    function openAdminAuth() {
+      document.getElementById('modal-admin-auth').classList.remove('hidden');
+      document.getElementById('admin-pass-input').focus();
+    }
+
+    function closeAdminAuth() {
+      document.getElementById('modal-admin-auth').classList.add('hidden');
+      document.getElementById('admin-pass-error').classList.add('hidden');
+      document.getElementById('admin-pass-input').value = '';
+    }
+
+    function verifyAdminPass() {
+      const pass = document.getElementById('admin-pass-input').value;
+      // 可以在此修改管理員密碼，例如將 'admin123' 改為您的新密碼
+      if (pass === '890331') {
+        closeAdminAuth();
+        switchTab('admin');
+      } else {
+        document.getElementById('admin-pass-error').classList.remove('hidden');
+      }
+    }
+
+    function logoutAdmin() {
+      switchTab('student-login');
+    }
+
+    function switchAdminTab(tabName) {
+      document.getElementById('admin-tab-table').classList.add('hidden');
+      document.getElementById('admin-tab-groups').classList.add('hidden');
+
+      document.getElementById('admin-tab-btn-table').className = "pb-3 border-b-2 border-transparent font-bold text-gray-500 hover:text-indigo-600 text-sm flex items-center gap-2";
+      document.getElementById('admin-tab-btn-groups').className = "pb-3 border-b-2 border-transparent font-bold text-gray-500 hover:text-indigo-600 text-sm flex items-center gap-2";
+
+      if (tabName === 'table') {
+        document.getElementById('admin-tab-table').classList.remove('hidden');
+        document.getElementById('admin-tab-btn-table').className = "pb-3 border-b-2 border-indigo-600 font-bold text-indigo-600 text-sm flex items-center gap-2";
+      } else if (tabName === 'groups') {
+        document.getElementById('admin-tab-groups').classList.remove('hidden');
+        document.getElementById('admin-tab-btn-groups').className = "pb-3 border-b-2 border-indigo-600 font-bold text-indigo-600 text-sm flex items-center gap-2";
+        renderAdminGroups();
+      }
+    }
+
+    // Render Admin Table
+    function renderAdminTable() {
+      const search = document.getElementById('admin-search-input').value.toLowerCase();
+      const tbody = document.getElementById('admin-table-body');
+      tbody.innerHTML = '';
+
+      const filtered = processedStudents.filter(s => 
+        s.name.includes(search) || s.id.includes(search) || String(s.seat).includes(search)
+      );
+
+      filtered.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-indigo-50/30 transition";
+
+        tr.innerHTML = `
+          <td class="p-3 font-mono font-bold text-indigo-900">${s.seat}</td>
+          <td class="p-3 font-mono text-gray-600">${s.id}</td>
+          <td class="p-3 font-medium text-gray-900">${s.name}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">數理第 ${s.mathGroup} 組</span></td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">語文第 ${s.langGroup} 組</span></td>
+          <td class="p-3 font-mono">${s.math.toFixed(1)} <span class="text-xs text-purple-600">(T:${s.tMath})</span></td>
+          <td class="p-3 font-mono">${s.lang.toFixed(1)} <span class="text-xs text-purple-600">(T:${s.tLang})</span></td>
+          <td class="p-3 font-mono font-bold text-purple-700">${s.tAvg}</td>
+          <td class="p-3 text-center">
+            <button onclick="previewStudent('${s.id}')" class="text-indigo-600 hover:text-indigo-900 text-xs font-medium bg-indigo-50 px-2.5 py-1 rounded">
+              <i class="fa-solid fa-eye mr-1"></i>預覽學生頁
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Render Admin Grouping Views
+    function renderAdminGroups() {
+      const mathGrid = document.getElementById('admin-math-groups-grid');
+      const langGrid = document.getElementById('admin-lang-groups-grid');
+      mathGrid.innerHTML = '';
+      langGrid.innerHTML = '';
+
+      // Math 9 Groups
+      for (let g = 1; g <= 9; g++) {
+        const members = processedStudents.filter(s => s.mathGroup === g);
+        const card = document.createElement('div');
+        card.className = "bg-white p-4 rounded-xl border border-blue-100 shadow-sm";
+        card.innerHTML = `
+          <h4 class="font-bold text-blue-900 mb-2 border-b pb-1 border-blue-100 flex justify-between">
+            <span>第 ${g} 組</span>
+            <span class="text-xs font-normal text-blue-600">${members.length} 人</span>
+          </h4>
+          <div class="space-y-1.5 text-xs">
+            ${members.map(m => `
+              <div class="flex justify-between items-center bg-blue-50/50 p-1.5 rounded">
+                <span><strong>${m.seat}號</strong> ${m.name}</span>
+                <span class="font-mono text-purple-700">T:${m.tMath}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        mathGrid.appendChild(card);
+      }
+
+      // Language 9 Groups
+      for (let g = 1; g <= 9; g++) {
+        const members = processedStudents.filter(s => s.langGroup === g);
+        const card = document.createElement('div');
+        card.className = "bg-white p-4 rounded-xl border border-emerald-100 shadow-sm";
+        card.innerHTML = `
+          <h4 class="font-bold text-emerald-900 mb-2 border-b pb-1 border-emerald-100 flex justify-between">
+            <span>第 ${g} 組</span>
+            <span class="text-xs font-normal text-emerald-600">${members.length} 人</span>
+          </h4>
+          <div class="space-y-1.5 text-xs">
+            ${members.map(m => `
+              <div class="flex justify-between items-center bg-emerald-50/50 p-1.5 rounded">
+                <span><strong>${m.seat}號</strong> ${m.name}</span>
+                <span class="font-mono text-purple-700">T:${m.tLang}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        langGrid.appendChild(card);
+      }
+    }
+
+    function previewStudent(stuId) {
+      const stu = processedStudents.find(s => s.id === stuId);
+      if (stu) {
+        currentStudent = stu;
+        renderStudentDashboard(stu);
+        switchTab('student-dashboard');
+        document.getElementById('nav-student-btn').classList.remove('hidden');
+      }
+    }
+
+    // Export CSV
+    function exportCSV() {
+      let csv = "\uFEFF座號,學號,姓名,數理組別,語文組別,數理原始分,數理Z分,數理T分,語文原始分,語文Z分,語文T分,綜合平均,綜合Z分,綜合T分(基準分)\n";
+      processedStudents.forEach(s => {
+        csv += `${s.seat},${s.id},${s.name},第${s.mathGroup}組,第${s.langGroup}組,${s.math},${s.zMath},${s.tMath},${s.lang},${s.zLang},${s.tLang},${s.avg.toFixed(2)},${s.zAvg},${s.tAvg}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `STAD_雙分組與標準分名冊.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    window.onload = function() {
+      initDataProcessing();
+    };
+  </script>
+</body>
+</html>
